@@ -2,7 +2,7 @@
 
 > Note, this page was written for the [`User-Community Airflow Helm Chart`](https://github.com/airflow-helm/charts/tree/main/charts/airflow)
 
-# How to manage airflow connections?
+# Manage Airflow Connections
 
 Airflow Connections are typically [created](https://airflow.apache.org/docs/apache-airflow/stable/howto/connection.html#creating-a-connection-with-the-ui) 
 and [updated](https://airflow.apache.org/docs/apache-airflow/stable/howto/connection.html#editing-a-connection-with-the-ui) using the WebUI, 
@@ -315,7 +315,7 @@ airflow:
       extra: |
         {
           "extra__google_cloud_platform__key_path": "/opt/airflow/secrets/gcp-keyfile/keyfile.json",
-          "extra__google_cloud_platform__num_retries: "5"
+          "extra__google_cloud_platform__num_retries": 5
         }
 
   extraVolumeMounts:
@@ -363,7 +363,7 @@ airflow:
       description: my GCP connection
       extra: |
         {
-          "extra__google_cloud_platform__num_retries: "5"
+          "extra__google_cloud_platform__num_retries": 5
         }
 
 serviceAccount:

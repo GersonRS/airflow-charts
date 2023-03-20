@@ -209,6 +209,12 @@ airflow:
   ##
   extraPipPackages: []
 
+  ## pip packages that are protected from upgrade/downgrade by `extraPipPackages`
+  ## - [WARNING] Pods will fail to start if `extraPipPackages` would cause these packages to change versions
+  ##
+  protectedPipPackages:
+    - "apache-airflow"
+
   ## extra environment variables for the airflow Pods
   ## - spec for EnvVar:
   ##   https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#envvar-v1-core
@@ -617,6 +623,11 @@ scheduler:
       ## - [WARNING] DummyOperator tasks will NOT be seen by this probe
       ##
       thresholdSeconds: 300
+
+      ## minimum number of seconds the scheduler must have run before the task creation check begins
+      ## - [WARNING] must be long enough for the scheduler to boot and create a task
+      ##
+      schedulerAgeBeforeCheck: 180
 
   ## extra pip packages to install in the scheduler Pods
   ##

@@ -1,6 +1,13 @@
 {{/* Checks for `.Release.name` */}}
-{{- if gt (len .Release.Name) 43 }}
-  {{ required "The `.Release.name` must be less than 43 characters (due to the 63 character limit for names in Kubernetes)!" nil }}
+{{/* NOTE: `allowLongReleaseName` was added when the max length dropped from 43 to 40, and is NOT intended for new deployments */}}
+{{- if .Values.allowLongReleaseName }}
+  {{- if gt (len .Release.Name) 43 }}
+  {{ required "The `.Release.name` must be <= 43 characters (due to the 63 character limit for names in Kubernetes)!" nil }}
+  {{- end }}
+{{- else }}
+  {{- if gt (len .Release.Name) 40 }}
+  {{ required "The `.Release.name` must be <= 40 characters (due to the 63 character limit for names in Kubernetes)!" nil }}
+  {{- end }}
 {{- end }}
 
 {{/* Checks for `airflow.legacyCommands` */}}
@@ -60,19 +67,45 @@
 {{- if or (.Values.airflow.config.AIRFLOW__CORE__SQL_ALCHEMY_CONN) (.Values.airflow.config.AIRFLOW__CORE__SQL_ALCHEMY_CONN_CMD) }}
   {{ required "Don't define `airflow.config.AIRFLOW__CORE__SQL_ALCHEMY_CONN`, it will be automatically set by the chart!" nil }}
 {{- end }}
+{{- if or (.Values.airflow.config.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN) (.Values.airflow.config.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN_CMD) }}
+  {{ required "Don't define `airflow.config.AIRFLOW__DATABASE__SQL_ALCHEMY_CONN`, it will be automatically set by the chart!" nil }}
+{{- end }}
+
+{{/* Checks for `scheduler.logCleanup` */}}
+{{- if .Values.scheduler.logCleanup.enabled }}
+  {{- if .Values.logs.persistence.enabled }}
+  {{ required "If `logs.persistence.enabled=true`, then `scheduler.logCleanup.enabled` must be `false`!" nil }}
+  {{- end }}
+  {{- if include "airflow.extraVolumeMounts.has_log_path" . }}
+  {{ required "If `logs.path` is under any `airflow.extraVolumeMounts`, then `scheduler.logCleanup.enabled` must be `false`!" nil }}
+  {{- end }}
+  {{- if include "airflow.scheduler.extraVolumeMounts.has_log_path" . }}
+  {{ required "If `logs.path` is under any `scheduler.extraVolumeMounts`, then `scheduler.logCleanup.enabled` must be `false`!" nil }}
+  {{- end }}
+{{- end }}
+
+{{/* Checks for `workers.logCleanup` */}}
+{{- if .Values.workers.enabled }}
+  {{- if .Values.workers.logCleanup.enabled }}
+    {{- if .Values.logs.persistence.enabled }}
+    {{ required "If `logs.persistence.enabled=true`, then `workers.logCleanup.enabled` must be `false`!" nil }}
+    {{- end }}
+    {{- if include "airflow.extraVolumeMounts.has_log_path" . }}
+    {{ required "If `logs.path` is under any `airflow.extraVolumeMounts`, then `workers.logCleanup.enabled` must be `false`!" nil }}
+    {{- end }}
+    {{- if include "airflow.workers.extraVolumeMounts.has_log_path" . }}
+    {{ required "If `logs.path` is under any `workers.extraVolumeMounts`, then `workers.logCleanup.enabled` must be `false`!" nil }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 
 {{/* Checks for `logs.persistence` */}}
 {{- if .Values.logs.persistence.enabled }}
   {{- if not (eq .Values.logs.persistence.accessMode "ReadWriteMany") }}
   {{ required "The `logs.persistence.accessMode` must be `ReadWriteMany`!" nil }}
   {{- end }}
-  {{- if .Values.scheduler.logCleanup.enabled }}
-  {{ required "If `logs.persistence.enabled=true`, then `scheduler.logCleanup.enabled` must be disabled!" nil }}
-  {{- end }}
-  {{- if .Values.workers.enabled }}
-    {{- if .Values.workers.logCleanup.enabled }}
-    {{ required "If `logs.persistence.enabled=true`, then `workers.logCleanup.enabled` must be disabled!" nil }}
-    {{- end }}
+  {{- if include "airflow.extraVolumeMounts.has_log_path" . }}
+  {{ required "If `logs.path` is under any `airflow.extraVolumeMounts`, then `logs.persistence.enabled` must be `false`!" nil }}
   {{- end }}
 {{- end }}
 

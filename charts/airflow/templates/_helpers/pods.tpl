@@ -175,9 +175,10 @@ EXAMPLE USAGE: {{ include "airflow.init_container.install_pip_packages" (dict "R
     - "-c"
     - |
       unset PYTHONUSERBASE && \
-      pip install --user {{ range .extraPipPackages }}{{ . | quote }} {{ end }} && \
-      echo "copying '/home/airflow/.local/*' to '/opt/home-airflow-local'..." && \
-      cp -r /home/airflow/.local/* /opt/home-airflow-local
+      pip freeze | grep -i {{ range .Values.airflow.protectedPipPackages }}-e {{ printf "%s==" . | quote }} {{ end }} > protected-packages.txt && \
+      pip install --constraint ./protected-packages.txt --user {{ range .extraPipPackages }}{{ . | quote }} {{ end }} && \
+      echo "copying '/home/airflow/.local/' to '/opt/home-airflow-local/.local/'..." && \
+      rsync -ah --stats --delete /home/airflow/.local/ /opt/home-airflow-local/.local/
   volumeMounts:
     - name: home-airflow-local
       mountPath: /opt/home-airflow-local
@@ -363,7 +364,11 @@ EXAMPLE USAGE: {{ include "airflow.volumeMounts" (dict "Release" .Release "Value
 {{- end }}
 
 {{- /* logs */ -}}
-{{- if .Values.logs.persistence.enabled }}
+{{- if include "airflow.extraVolumeMounts.has_log_path" . }}
+{{- /* when `airflow.extraVolumeMounts` has `logs.path`, we dont need a "logs-data" volume mount */ -}}
+{{- else if include "airflow._has_logs_path" (dict "Values" .Values "volume_mounts" .extraVolumeMounts) }}
+{{- /* when `.extraVolumeMounts` has `logs.path`, we dont need a "logs-data" volume mount */ -}}
+{{- else if .Values.logs.persistence.enabled }}
 - name: logs-data
   mountPath: {{ .Values.logs.path }}
   subPath: {{ .Values.logs.persistence.subPath }}
@@ -376,6 +381,7 @@ EXAMPLE USAGE: {{ include "airflow.volumeMounts" (dict "Release" .Release "Value
 {{- if .extraPipPackages }}
 - name: home-airflow-local
   mountPath: /home/airflow/.local
+  subPath: .local
 {{- end }}
 
 {{- /* user-defined (global) */ -}}
@@ -391,7 +397,7 @@ EXAMPLE USAGE: {{ include "airflow.volumeMounts" (dict "Release" .Release "Value
 
 {{/*
 The list of `volumes` for web/scheduler/worker/flower Pods
-EXAMPLE USAGE: {{ include "airflow.volumes" (dict "Release" .Release "Values" .Values "extraPipPackages" $extraPipPackages "extraVolumes" $extraVolumes) }}
+EXAMPLE USAGE: {{ include "airflow.volumes" (dict "Release" .Release "Values" .Values "extraPipPackages" $extraPipPackages "extraVolumes" $extraVolumes "extraVolumeMounts" $extraVolumeMounts) }}
 */}}
 {{- define "airflow.volumes" }}
 {{- /* airflow_local_settings.py */ -}}
@@ -421,7 +427,11 @@ EXAMPLE USAGE: {{ include "airflow.volumes" (dict "Release" .Release "Values" .V
 {{- end }}
 
 {{- /* logs */ -}}
-{{- if .Values.logs.persistence.enabled }}
+{{- if include "airflow.extraVolumeMounts.has_log_path" . }}
+{{- /* when `airflow.extraVolumeMounts` has `logs.path`, we dont need a "logs-data" volume */ -}}
+{{- else if include "airflow._has_logs_path" (dict "Values" .Values "volume_mounts" .extraVolumeMounts) }}
+{{- /* when `.extraVolumeMounts` has `logs.path`, we dont need a "logs-data" volume */ -}}
+{{- else if .Values.logs.persistence.enabled }}
 - name: logs-data
   persistentVolumeClaim:
     {{- if .Values.logs.persistence.existingClaim }}
